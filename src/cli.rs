@@ -47,16 +47,5 @@ pub enum Command {
         #[arg(long, required = true)]
         role: String,
     },
-    AddMapping {
-        #[arg(long, required = true)]
-        schema: String,
-
-        #[arg(long, required = true)]
-        role: String,
-    },
     ListMappings,
-    RemoveMapping {
-        #[arg(long, required = true)]
-        schema: String,
-    },
 }

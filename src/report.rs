@@ -6,8 +6,6 @@ pub enum ActionOutcome {
     Created,
     Skipped,
     Updated,
-    Removed,
-    NotFound,
 }
 
 impl fmt::Display for ActionOutcome {
@@ -16,8 +14,6 @@ impl fmt::Display for ActionOutcome {
             ActionOutcome::Created => write!(f, "Created"),
             ActionOutcome::Skipped => write!(f, "Skipped"),
             ActionOutcome::Updated => write!(f, "Updated"),
-            ActionOutcome::Removed => write!(f, "Removed"),
-            ActionOutcome::NotFound => write!(f, "Not Found"),
         }
     }
 }
@@ -49,8 +45,6 @@ impl ActionReport {
         let created = self.actions.iter().filter(|(_, o)| matches!(o, ActionOutcome::Created)).count();
         let skipped = self.actions.iter().filter(|(_, o)| matches!(o, ActionOutcome::Skipped)).count();
         let updated = self.actions.iter().filter(|(_, o)| matches!(o, ActionOutcome::Updated)).count();
-        let removed = self.actions.iter().filter(|(_, o)| matches!(o, ActionOutcome::Removed)).count();
-        let not_found = self.actions.iter().filter(|(_, o)| matches!(o, ActionOutcome::NotFound)).count();
 
         println!();
         println!("=== {} Summary ===", self.command_name);
@@ -64,12 +58,6 @@ impl ActionReport {
         }
         if updated > 0 {
             println!("  Updated: {}", updated);
-        }
-        if removed > 0 {
-            println!("  Removed: {}", removed);
-        }
-        if not_found > 0 {
-            println!("  Not Found: {}", not_found);
         }
 
         println!("==================");

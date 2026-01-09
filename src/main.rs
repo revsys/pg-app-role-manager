@@ -37,14 +37,8 @@ async fn main() -> Result<()> {
 
             commands::init::execute(conn_config, resolved_database, schema, role, verbose).await?;
         }
-        Command::AddMapping { schema, role } => {
-            commands::add_mapping::execute(conn_config, schema, role, verbose).await?;
-        }
         Command::ListMappings => {
             commands::list_mappings::execute(conn_config, verbose).await?;
-        }
-        Command::RemoveMapping { schema } => {
-            commands::remove_mapping::execute(conn_config, schema, verbose).await?;
         }
     }
 

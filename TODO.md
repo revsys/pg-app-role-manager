@@ -9,12 +9,48 @@
 - **Idempotency**: Skip and continue if objects exist
 - **User grants**: NOT implemented (admins handle `GRANT role TO user` manually)
 - **TLS semantics**: Matches PostgreSQL (require = encryption without cert verification)
+- **Commands**: init, list-mappings only (add-mapping and remove-mapping removed to avoid complexity)
+- **Schema owner immutability**: Once initialized, schema-to-role mappings are immutable
 
 ---
 
 ## Pending Work
 
-### ✓ COMPLETED: TLS/SSL Connection Implementation
+**Status:** No pending implementation tasks. All core functionality complete.
+
+---
+
+## Recent Changes
+
+### Command Simplification (January 2026)
+**Removed commands:** add-mapping, remove-mapping
+
+**Rationale:** Managing multiple roles per schema introduced excessive complexity:
+- Corner cases with ownership transfers
+- Cleanup logic for privileges, triggers, and functions
+- Potential for inconsistent state
+
+**New design:**
+- Schema-to-role mappings are established only via `init` command
+- Mappings are **immutable** after initialization
+- Simpler mental model: one schema → one role, set once
+- `list-mappings` remains for visibility into current state
+
+**Files removed:**
+- `src/commands/add_mapping.rs`
+- `src/commands/remove_mapping.rs`
+
+**Files updated:**
+- `src/cli.rs` - Removed AddMapping and RemoveMapping variants
+- `src/main.rs` - Removed command dispatch logic
+- `src/commands/mod.rs` - Removed module declarations
+- `src/report.rs` - Removed unused ActionOutcome variants (Removed, NotFound)
+
+---
+
+## Completed Work
+
+### ✓ TLS/SSL Connection Implementation
 
 **Status: All phases complete and tested successfully**
 

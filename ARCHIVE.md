@@ -353,3 +353,42 @@ This document contains all completed tasks from the pg-app-role-manager project.
 2. Implemented custom ServerCertVerifier to bypass certificate checks
 3. All TLS errors in Prefer mode trigger fallback (simple, matches PostgreSQL)
 4. No certificate validation in any mode (matches PostgreSQL "require" semantics)
+
+### 17. Command Simplification - Removal of add-mapping and remove-mapping
+**Completed:** January 2026
+
+**Decision:** Removed add-mapping and remove-mapping commands to avoid excessive complexity
+
+**Rationale:**
+- Managing mutable schema-to-role mappings introduced corner cases:
+  * Ownership transfers when changing roles
+  * Cleanup of privileges, default privileges, triggers, and functions on removal
+  * Potential for inconsistent state
+  * Risk of accidentally breaking production schemas
+- Original design was optimistic about handling all edge cases
+- Simpler is better: establish mappings once during init, leave them immutable
+
+**Changes Made:**
+- [x] Removed AddMapping and RemoveMapping variants from CLI enum (src/cli.rs)
+- [x] Deleted src/commands/add_mapping.rs
+- [x] Deleted src/commands/remove_mapping.rs
+- [x] Updated main.rs to remove command dispatch logic
+- [x] Updated src/commands/mod.rs to remove module declarations
+- [x] Cleaned up src/report.rs - removed unused ActionOutcome::Removed and ActionOutcome::NotFound
+- [x] Updated TODO.md with new project decisions
+- [x] Documented change in ARCHIVE.md
+
+**New Design:**
+- Schema-to-role mappings established only via `init` command
+- Mappings are **immutable** after initialization
+- `list-mappings` retained for visibility into current configuration
+- Event trigger and config table remain database-wide
+- If mapping changes needed: manual SQL or drop/recreate database
+
+**Thinking Mode:** ⚠️ Minimal - mechanical removal of code
+
+**Testing:**
+- cargo check: passed without warnings
+- cargo build --release: successful
+- --help output: only shows init and list-mappings commands
+- Binary size: 7.2M (unchanged)
