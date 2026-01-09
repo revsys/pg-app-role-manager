@@ -48,4 +48,5 @@ pub enum Command {
         role: String,
     },
     ListMappings,
+    Version,
 }

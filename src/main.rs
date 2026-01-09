@@ -40,6 +40,9 @@ async fn main() -> Result<()> {
         Command::ListMappings => {
             commands::list_mappings::execute(conn_config, verbose).await?;
         }
+        Command::Version => {
+            println!("{}", env!("CARGO_PKG_VERSION"));
+        }
     }
 
     Ok(())
