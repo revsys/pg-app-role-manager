@@ -46,12 +46,22 @@ Scans all non-system databases in the PostgreSQL instance and displays schema ow
 pg-app-role-manager list-mappings
 ```
 
-Output includes:
+**Output format:**
+```
+Database             Schema               Target Role                    Granted To                     Created At            Updated At
+----------------------------------------------------------------------------------------------------------------------------------------------------
+myapp_prod          app                  app_manager                    app_user, app_reader           2025-01-09 14:23:45   2025-01-09 14:23:45
+
+Total mappings: 1 across 1 database(s)
+```
+
+**Columns:**
 - Database name
 - Schema name
-- Target role
-- Created/updated timestamps
-- Summary: total mappings across all databases
+- Target role (owner of schema objects)
+- Granted To (users/roles granted the target role, or "(none)")
+- Created timestamp (UTC)
+- Updated timestamp (UTC)
 
 **No --dbname required** - automatically scans all user databases.
 

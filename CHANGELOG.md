@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-01-09
+
+### Added
+- **Role Membership Visibility**: `list-mappings` now displays "Granted To" column
+  - Shows which users/roles have been granted membership in each target role
+  - Displays "(none)" when no members exist
+  - Provides complete visibility into schema access patterns
+  - Helps administrators understand who can create objects in managed schemas
+
+### Changed
+- **Output Format**: Enhanced table layout with 6 columns instead of 4
+  - Added "Granted To" column between "Target Role" and timestamps
+  - Queries `pg_auth_members` to discover role memberships
+  - Gracefully handles query failures with empty member lists
+
 ## [0.2.0] - 2026-01-09
 
 ### Breaking Changes
@@ -208,6 +223,7 @@ All commands support:
 - Event trigger only fires on DDL commands (not for objects created via dumps/restores)
 - Password handling via CLI flags may expose credentials in process lists (use environment variables in production)
 
-[unreleased]: https://github.com/yourusername/pg-app-role-manager/compare/v0.2.0...HEAD
+[unreleased]: https://github.com/yourusername/pg-app-role-manager/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/yourusername/pg-app-role-manager/compare/v0.2.0...v1.0.0
 [0.2.0]: https://github.com/yourusername/pg-app-role-manager/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/yourusername/pg-app-role-manager/releases/tag/v0.1.0
