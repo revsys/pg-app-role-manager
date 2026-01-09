@@ -196,7 +196,7 @@ EXECUTE FUNCTION auto_transfer_schema_ownership()"#
 
     pub fn insert_initial_mapping(&self) -> String {
         format!(
-            "INSERT INTO public.schema_ownership_config (schema_name, target_role) VALUES ('{}', '{}') ON CONFLICT (schema_name) DO UPDATE SET target_role = EXCLUDED.target_role, updated_at = now()",
+            "INSERT INTO public.schema_ownership_config (schema_name, target_role) VALUES ('{}', '{}') ON CONFLICT (schema_name) DO NOTHING",
             self.schema, self.role
         )
     }

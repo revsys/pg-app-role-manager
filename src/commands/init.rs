@@ -49,7 +49,19 @@ pub async fn execute(conn_opts: ConnectionConfig, database: String, schema: Stri
     let client = connect(&target_config).await?;
 
     // Check and create schema
-    if schema_exists(&client, &schema, verbose).await? {
+    let schema_already_exists = schema_exists(&client, &schema, verbose).await?;
+    if schema_already_exists {
+        // Schema exists - check if there's already a mapping for it
+        if let Some(existing_role) = get_schema_mapping(&client, &schema, verbose).await? {
+            if existing_role != role {
+                anyhow::bail!(
+                    "Schema '{}' is already mapped to role '{}'. Schema-to-role mappings are immutable after initialization. \
+                     To change the mapping, you must manually update the database using SQL.",
+                    schema, existing_role
+                );
+            }
+            // else: Same role, continue idempotently
+        }
         report.record(format!("Schema '{}'", schema), ActionOutcome::Skipped);
     } else {
         let sql = templates.create_schema();
@@ -210,4 +222,18 @@ async fn event_trigger_exists(client: &Client, trigger_name: &str, verbose: u8) 
         .query_one(sql, &[&trigger_name])
         .await;
     Ok(row.is_ok())
+}
+
+async fn get_schema_mapping(client: &Client, schema: &str, verbose: u8) -> Result<Option<String>> {
+    let sql = "SELECT target_role FROM public.schema_ownership_config WHERE schema_name = $1";
+    if verbose >= 1 {
+        println!("[SQL] {} -- params: [{}]", sql, schema);
+    }
+    match client.query_one(sql, &[&schema]).await {
+        Ok(row) => {
+            let role: String = row.get(0);
+            Ok(Some(role))
+        }
+        Err(_) => Ok(None),
+    }
 }
