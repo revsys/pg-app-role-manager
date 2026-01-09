@@ -6,6 +6,16 @@ use crate::report::{ActionOutcome, ActionReport};
 use crate::sql_templates::SqlTemplates;
 
 pub async fn execute(conn_opts: ConnectionConfig, database: String, schema: String, role: String, verbose: u8) -> Result<()> {
+    // Block operations on system databases (PostgreSQL + cloud providers)
+    let blocked_databases = ["postgres", "template0", "template1", "rdsadmin", "azure_maintenance", "cloudsqladmin"];
+    if blocked_databases.contains(&database.as_str()) {
+        anyhow::bail!(
+            "Cannot initialize schema ownership management on system database '{}'. \
+             System databases (postgres, template0, template1, rdsadmin, etc.) are reserved for internal use.",
+            database
+        );
+    }
+
     let mut report = ActionReport::new("Init");
     let templates = SqlTemplates::new(database.clone(), schema.clone(), role.clone());
 

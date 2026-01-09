@@ -7,35 +7,66 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-01-09
+
+### Breaking Changes
+- **Removed Commands**: `add-mapping` and `remove-mapping` commands removed
+  - Schema-to-role mappings are now **immutable** after initialization
+  - Rationale: Avoiding complex ownership transfer logic and potential for inconsistent state
+  - Migration: Use `init` to establish mappings; manual SQL required to change existing mappings
+- **API Change**: `list-mappings` no longer accepts `--dbname` flag
+  - Now scans all non-system databases automatically
+  - Displays database name in output table
+
 ### Added
-- **Completion Reports**: All commands now display a summary report upon completion
-  - Shows aggregated counts of actions (Created, Skipped, Updated, Removed, Not Found)
-  - Provides clear feedback about what operations were performed
-  - Helps track idempotent operations and verify expected behavior
+- **TLS/SSL Support**: Full encryption support matching PostgreSQL semantics
+  - `--sslmode disable`: No encryption
+  - `--sslmode prefer` (default): Try TLS, fallback to unencrypted if TLS fails
+  - `--sslmode require`: Require TLS encryption (no certificate verification)
+  - Environment variable: `PGSSLMODE`
+  - Implementation uses rustls with custom certificate verifier
+  - No verify-ca or verify-full modes (certificate validation not implemented)
+- **Multi-Database Scanning**: `list-mappings` now queries all user databases
+  - Automatically discovers non-system databases via `pg_database`
+  - Output includes database name column
+  - Summary shows total mappings across all databases
+  - Gracefully handles connection failures and missing config tables
+- **System Database Protection**: Blocks operations on system databases
+  - PostgreSQL core: postgres, template0, template1
+  - AWS RDS: rdsadmin
+  - Azure: azure_maintenance
+  - GCP Cloud SQL: cloudsqladmin
+  - Applies to both `init` and `list-mappings` commands
+- **Password Security**: Password values hidden in help output
+  - `--password` flag uses `hide_env_values = true`
+  - Environment variable name still shown, but value obscured
+  - Prevents credential leakage in screenshots and documentation
+- **Completion Reports**: All commands display summary report upon completion
+  - Shows aggregated counts of actions (Created, Skipped, Updated)
+  - Provides clear feedback about operations performed
 - **Verbosity Levels**: Added `-v` and `-vv` flags for SQL visibility
-  - `-v`: Shows all SQL statements and parameters (excludes large trigger function)
-  - `-vv`: Shows all SQL including the complete trigger function definition
-  - Helps with debugging and understanding exact operations performed
-- **Static Binary Support**: Added musl target for fully static binaries
-  - Build with: `cargo build --release --target x86_64-unknown-linux-musl`
-  - No libc dependency, portable across Linux systems
-  - Ideal for containerized deployments
-- **README Documentation**: Brief usage documentation covering all commands and options
+  - `-v`: Shows SQL statements (excludes trigger function)
+  - `-vv`: Shows all SQL including trigger function definition
+- **Static Binary Support**: x86_64-unknown-linux-musl target
+  - Fully static binary, no libc dependency
+  - Portable across Linux distributions
+  - Required build target per project standards
+- **README Documentation**: Comprehensive usage documentation
 
 ### Changed
 - **Config Table Location**: Schema-qualified as `public.schema_ownership_config`
-  - Prevents ambiguity when databases have custom `search_path` settings
-  - Ensures consistent behavior regardless of session search_path configuration
-  - Event trigger function updated to reference `public.schema_ownership_config`
+  - Prevents ambiguity with custom `search_path` settings
+  - Ensures consistent behavior regardless of session configuration
+- **Report Output**: Removed "Removed" and "NotFound" action types
+  - Only relevant action types retained: Created, Skipped, Updated
 
 ### Fixed
-- `init` command now properly falls back to `PGDATABASE` environment variable when `--database` flag is not provided
-- Added clear error message when neither `--database` flag nor `PGDATABASE` environment variable is specified
+- `init` command properly falls back to `PGDATABASE` environment variable
+- Clear error messages when required parameters missing
 - **Graceful Handling of Uninitialized Databases**:
-  - `list-mappings`: Shows friendly message instead of error when config table doesn't exist
-  - `add-mapping`: Returns clear error with initialization instruction
-  - `remove-mapping`: Returns clear error with initialization instruction
-  - All commands detect missing table (SQLSTATE 42P01) and provide actionable guidance
+  - `list-mappings`: Shows friendly message when config table doesn't exist
+  - Skips databases without schema_ownership_config during multi-database scan
+  - All commands detect missing table (SQLSTATE 42P01) and provide guidance
 
 ## [0.1.0] - 2026-01-08
 
@@ -177,5 +208,6 @@ All commands support:
 - Event trigger only fires on DDL commands (not for objects created via dumps/restores)
 - Password handling via CLI flags may expose credentials in process lists (use environment variables in production)
 
-[unreleased]: https://github.com/yourusername/pg-app-role-manager/compare/v0.1.0...HEAD
+[unreleased]: https://github.com/yourusername/pg-app-role-manager/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/yourusername/pg-app-role-manager/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/yourusername/pg-app-role-manager/releases/tag/v0.1.0

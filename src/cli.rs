@@ -22,7 +22,7 @@ pub struct ConnectionOpts {
     #[arg(long, env = "PGUSER", required = true)]
     pub user: String,
 
-    #[arg(long, env = "PGPASSWORD", required = true)]
+    #[arg(long, env = "PGPASSWORD", required = true, hide_env_values = true)]
     pub password: String,
 
     #[arg(long, env = "PGDATABASE")]
