@@ -28,6 +28,9 @@ pub struct ConnectionOpts {
     #[arg(long, env = "PGDATABASE")]
     pub dbname: Option<String>,
 
+    #[arg(long, env = "PGSSLMODE", default_value = "prefer", help = "SSL mode: disable, prefer, or require")]
+    pub sslmode: String,
+
     #[arg(short = 'v', action = ArgAction::Count, help = "Increase verbosity (-v for SQL statements, -vv includes trigger function)")]
     pub verbose: u8,
 }

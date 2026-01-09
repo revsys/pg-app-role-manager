@@ -7,11 +7,14 @@ mod sql_templates;
 use anyhow::Result;
 use clap::Parser;
 use cli::{Cli, Command};
-use db::ConnectionConfig;
+use db::{ConnectionConfig, SslMode};
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = Cli::parse();
+
+    // Parse SSL mode
+    let sslmode = SslMode::from_str(&args.connection.sslmode)?;
 
     let conn_config = ConnectionConfig {
         host: args.connection.host,
@@ -19,6 +22,7 @@ async fn main() -> Result<()> {
         user: args.connection.user,
         password: args.connection.password,
         dbname: args.connection.dbname,
+        sslmode,
     };
 
     let verbose = args.connection.verbose;

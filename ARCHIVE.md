@@ -281,3 +281,75 @@ This document contains all completed tasks from the pg-app-role-manager project.
 - Simple CRUD operations (list, remove) ✓
 - Documentation ✓
 - Basic commands and formatting ✓
+
+### 16. TLS/SSL Connection Implementation
+**Completed:** January 2026
+**Total Tasks:** 31 across 7 phases
+
+- [x] **Phase 1: Dependencies and Type Definitions** ✓ COMPLETE
+  - Added postgres_rustls, rustls, tokio-rustls, webpki-roots dependencies
+  - Created SslMode enum (Disable, Prefer, Require) with from_str() validation
+  - Implemented Default trait returning Prefer
+  - **Thinking Mode**: ❌ Not needed - straightforward dependency and enum additions
+
+- [x] **Phase 2: Configuration Updates** ✓ COMPLETE
+  - Added sslmode field to ConnectionConfig struct
+  - Added sslmode CLI flag with PGSSLMODE environment variable support
+  - Updated main.rs to parse and pass sslmode to connection config
+  - **Thinking Mode**: ❌ Not needed - mechanical field additions
+
+- [x] **Phase 3: TLS Connector Implementation** ✓ COMPLETE
+  - Created custom NoVerifier implementing ServerCertVerifier trait
+  - Implements PostgreSQL "require" semantics: encryption without certificate verification
+  - Built rustls ClientConfig with .dangerous().with_custom_certificate_verifier()
+  - Set PostgreSQL ALPN protocol (critical for handshake)
+  - Created MakeTlsConnector wrapping tokio-rustls TlsConnector
+  - **Thinking Mode**: ✅ High - security-critical TLS configuration
+  - **Key Decision**: No certificate verification matches PostgreSQL's "require" mode
+  - **Security Note**: Provides encryption but not server identity verification
+
+- [x] **Phase 4: Connection Logic Rewrite** ✓ COMPLETE
+  - Implemented SslMode::Disable branch (NoTls, existing behavior)
+  - Implemented SslMode::Require branch (TLS connector, no fallback)
+  - Implemented SslMode::Prefer branch (try TLS first, fallback to NoTls on any error)
+  - Added all necessary rustls imports for custom certificate verifier
+  - **Thinking Mode**: ✅ High - complex error handling with fallback logic
+  - **Key Decision**: All TLS errors trigger fallback in Prefer mode (matches PostgreSQL)
+
+- [x] **Phase 5: Build and Basic Validation** ✓ COMPLETE
+  - cargo check passed without errors
+  - cargo build --release succeeded
+  - Binary size: 7.2M (includes TLS stack)
+  - **Thinking Mode**: ❌ Not needed - verification step
+
+- [x] **Phase 6: Testing** ✓ COMPLETE
+  - Tested require mode with SSL-enabled server (self-signed certificate)
+  - Connection successful with TLS encryption
+  - Tested prefer mode fallback logic
+  - Warning message confirmed: "TLS connection failed (...), falling back to unencrypted connection"
+  - Verified behavior with server requiring encryption (pg_hba.conf rejects unencrypted)
+  - **Thinking Mode**: ❌ Not needed - manual testing
+  - **Test Environment**: PostgreSQL server with self-signed certificate, encryption required
+
+- [x] **Phase 7: Documentation and Cleanup** ✓ COMPLETE
+  - Updated TODO.md to mark TLS implementation complete
+  - Documented PostgreSQL semantics match
+  - Added build target requirement (x86_64-unknown-linux-musl)
+  - Moved completed work to ARCHIVE.md
+  - **Thinking Mode**: ❌ Not needed - documentation
+
+**Implementation Notes:**
+- **PostgreSQL Semantics**: Matches PostgreSQL's sslmode behavior:
+  - `disable`: No TLS encryption
+  - `prefer`: Try TLS first, fallback to unencrypted if TLS fails (default)
+  - `require`: Require TLS encryption, no certificate verification
+- **Not Implemented**: verify-ca and verify-full modes (certificate validation)
+- **Custom Verifier**: NoVerifier accepts all certificates without validation
+- **Security Trade-off**: Prevents passive eavesdropping but not active MITM attacks
+- **ALPN Protocol**: Correctly sets "postgresql" ALPN identifier (required for handshake)
+
+**Technical Decisions:**
+1. Used rustls instead of native-tls for pure Rust implementation
+2. Implemented custom ServerCertVerifier to bypass certificate checks
+3. All TLS errors in Prefer mode trigger fallback (simple, matches PostgreSQL)
+4. No certificate validation in any mode (matches PostgreSQL "require" semantics)
