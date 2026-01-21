@@ -166,8 +166,18 @@ BEGIN
                         EXECUTE format('ALTER TABLE %s OWNER TO %I',
                                      obj.object_identity, target_role_name);
                     WHEN 'sequence' THEN
-                        EXECUTE format('ALTER SEQUENCE %s OWNER TO %I',
-                                     obj.object_identity, target_role_name);
+                        -- Skip sequences owned by table columns (created by SERIAL/BIGSERIAL)
+                        -- ALTER TABLE automatically transfers ownership of dependent sequences
+                        IF NOT EXISTS (
+                            SELECT 1 FROM pg_depend
+                            WHERE objid = obj.objid
+                              AND deptype = 'a'
+                              AND classid = 'pg_class'::regclass
+                              AND refclassid = 'pg_class'::regclass
+                        ) THEN
+                            EXECUTE format('ALTER SEQUENCE %s OWNER TO %I',
+                                         obj.object_identity, target_role_name);
+                        END IF;
                     WHEN 'view' THEN
                         EXECUTE format('ALTER VIEW %s OWNER TO %I',
                                      obj.object_identity, target_role_name);

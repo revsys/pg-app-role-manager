@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Event Trigger for SERIAL Sequences**: Fixed bug where trigger function failed on tables with SERIAL/BIGSERIAL columns
+  - Error: "cannot change owner of sequence... Sequence is linked to table"
+  - Root cause: Trigger attempted to `ALTER SEQUENCE` ownership for sequences owned by table columns
+  - Solution: Skip ownership transfer for sequences with automatic dependencies (`deptype = 'a'` in `pg_depend`)
+  - Behavior: `ALTER TABLE` automatically transfers ownership of dependent sequences
+  - Impact: Django migrations and other frameworks using SERIAL columns now work correctly
+
 ## [1.0.0] - 2026-01-09
 
 ### Added
