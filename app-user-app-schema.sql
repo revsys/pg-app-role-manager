@@ -122,6 +122,10 @@ BEGIN
                     SELECT typowner INTO current_owner_oid
                     FROM pg_type
                     WHERE oid = obj.objid;
+
+                ELSE
+                    -- Ignore other object types (index, trigger, etc.)
+                    NULL;
             END CASE;
 
             -- Only transfer ownership if it's not already owned by target role
@@ -131,12 +135,13 @@ BEGIN
                         EXECUTE format('ALTER TABLE %s OWNER TO %I',
                                      obj.object_identity, target_role_name);
                     WHEN 'sequence' THEN
-                        -- Skip sequences owned by table columns (created by SERIAL/BIGSERIAL)
+                        -- Skip sequences owned by table columns (created by SERIAL/BIGSERIAL/IDENTITY)
                         -- ALTER TABLE automatically transfers ownership of dependent sequences
+                        -- deptype 'a' = auto, 'i' = internal (both indicate column ownership)
                         IF NOT EXISTS (
                             SELECT 1 FROM pg_depend
                             WHERE objid = obj.objid
-                              AND deptype = 'a'
+                              AND deptype IN ('a', 'i')
                               AND classid = 'pg_class'::regclass
                               AND refclassid = 'pg_class'::regclass
                         ) THEN
@@ -155,6 +160,9 @@ BEGIN
                     WHEN 'type' THEN
                         EXECUTE format('ALTER TYPE %s OWNER TO %I',
                                      obj.object_identity, target_role_name);
+                    ELSE
+                        -- Ignore other object types (index, trigger, etc.)
+                        NULL;
                 END CASE;
             END IF;
         END IF;
