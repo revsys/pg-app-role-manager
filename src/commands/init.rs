@@ -71,6 +71,13 @@ pub async fn execute(conn_opts: ConnectionConfig, database: String, schema: Stri
         report.record(format!("Schema '{}'", schema), ActionOutcome::Created);
     }
 
+    // Set database-level default search_path to the app schema
+    let sql = templates.alter_database_search_path();
+    log_sql(&sql, 1);
+    client.execute(&sql, &[]).await
+        .context("Failed to set database search_path")?;
+    report.record("Database search_path", ActionOutcome::Updated);
+
     // Check and create role
     if role_exists(&client, &role, verbose).await? {
         report.record(format!("Role '{}'", role), ActionOutcome::Skipped);
@@ -81,6 +88,54 @@ pub async fn execute(conn_opts: ConnectionConfig, database: String, schema: Stri
             .context("Failed to create role")?;
         report.record(format!("Role '{}'", role), ActionOutcome::Created);
     }
+
+    // Check and create read-only role
+    let ro_role_name = format!("{}_ro", schema);
+    if role_exists(&client, &ro_role_name, verbose).await? {
+        report.record(format!("Role '{}'", ro_role_name), ActionOutcome::Skipped);
+    } else {
+        let sql = templates.create_readonly_role();
+        log_sql(&sql, 1);
+        client.execute(&sql, &[]).await
+            .context("Failed to create read-only role")?;
+        report.record(format!("Role '{}'", ro_role_name), ActionOutcome::Created);
+    }
+
+    let sql = templates.grant_connect_readonly();
+    log_sql(&sql, 1);
+    client.execute(&sql, &[]).await
+        .context("Failed to grant CONNECT to read-only role")?;
+    report.record(format!("CONNECT privilege ({})", ro_role_name), ActionOutcome::Updated);
+
+    let sql = templates.grant_schema_usage_readonly();
+    log_sql(&sql, 1);
+    client.execute(&sql, &[]).await
+        .context("Failed to grant USAGE on schema to read-only role")?;
+    report.record(format!("USAGE on schema ({})", ro_role_name), ActionOutcome::Updated);
+
+    let sql = templates.grant_select_tables();
+    log_sql(&sql, 1);
+    client.execute(&sql, &[]).await
+        .context("Failed to grant SELECT on tables to read-only role")?;
+    report.record(format!("SELECT on tables ({})", ro_role_name), ActionOutcome::Updated);
+
+    let sql = templates.grant_select_sequences();
+    log_sql(&sql, 1);
+    client.execute(&sql, &[]).await
+        .context("Failed to grant SELECT on sequences to read-only role")?;
+    report.record(format!("SELECT on sequences ({})", ro_role_name), ActionOutcome::Updated);
+
+    let sql = templates.alter_default_privileges_select_tables();
+    log_sql(&sql, 1);
+    client.execute(&sql, &[]).await
+        .context("Failed to set default SELECT privileges on tables for read-only role")?;
+    report.record(format!("Default SELECT on tables ({})", ro_role_name), ActionOutcome::Updated);
+
+    let sql = templates.alter_default_privileges_select_sequences();
+    log_sql(&sql, 1);
+    client.execute(&sql, &[]).await
+        .context("Failed to set default SELECT privileges on sequences for read-only role")?;
+    report.record(format!("Default SELECT on sequences ({})", ro_role_name), ActionOutcome::Updated);
 
     // Set up schema ownership and grants
     let sql = templates.grant_connect();

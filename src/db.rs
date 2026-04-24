@@ -6,7 +6,7 @@ use rustls::{DigitallySignedStruct, SignatureScheme};
 use std::sync::Arc;
 use tokio_postgres::{Client, NoTls};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum SslMode {
     Disable,
     Prefer,
@@ -191,5 +191,83 @@ pub async fn connect(config: &ConnectionConfig) -> Result<Client> {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── SslMode::from_str ────────────────────────────────────────────────────
+
+    #[test]
+    fn from_str_disable() {
+        assert_eq!(SslMode::from_str("disable").unwrap(), SslMode::Disable);
+    }
+
+    #[test]
+    fn from_str_prefer() {
+        assert_eq!(SslMode::from_str("prefer").unwrap(), SslMode::Prefer);
+    }
+
+    #[test]
+    fn from_str_require() {
+        assert_eq!(SslMode::from_str("require").unwrap(), SslMode::Require);
+    }
+
+    #[test]
+    fn from_str_is_case_insensitive() {
+        assert_eq!(SslMode::from_str("DISABLE").unwrap(), SslMode::Disable);
+        assert_eq!(SslMode::from_str("Prefer").unwrap(),  SslMode::Prefer);
+        assert_eq!(SslMode::from_str("REQUIRE").unwrap(), SslMode::Require);
+    }
+
+    #[test]
+    fn from_str_rejects_verify_full() {
+        assert!(SslMode::from_str("verify-full").is_err());
+    }
+
+    #[test]
+    fn from_str_rejects_empty_string() {
+        assert!(SslMode::from_str("").is_err());
+    }
+
+    #[test]
+    fn from_str_rejects_unknown_value() {
+        assert!(SslMode::from_str("tls").is_err());
+    }
+
+    #[test]
+    fn default_is_prefer() {
+        assert_eq!(SslMode::default(), SslMode::Prefer);
+    }
+
+    // ── ConnectionConfig::build_connection_string ────────────────────────────
+
+    fn make_config(dbname: Option<&str>) -> ConnectionConfig {
+        ConnectionConfig {
+            host: "myhost".into(),
+            port: 5433,
+            user: "myuser".into(),
+            password: "mypass".into(),
+            dbname: dbname.map(str::to_owned),
+            sslmode: SslMode::Prefer,
+        }
+    }
+
+    #[test]
+    fn connection_string_with_dbname() {
+        let s = make_config(Some("mydb")).build_connection_string();
+        assert!(s.contains("host=myhost"));
+        assert!(s.contains("port=5433"));
+        assert!(s.contains("user=myuser"));
+        assert!(s.contains("password=mypass"));
+        assert!(s.contains("dbname=mydb"));
+    }
+
+    #[test]
+    fn connection_string_without_dbname_defaults_to_postgres() {
+        let s = make_config(None).build_connection_string();
+        assert!(s.contains("dbname=postgres"));
     }
 }

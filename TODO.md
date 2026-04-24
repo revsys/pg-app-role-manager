@@ -16,7 +16,129 @@
 
 ## Pending Work
 
-**Status:** No pending implementation tasks. All core functionality complete.
+### Read-Only Role Creation in `init` ✓ COMPLETE
+
+- [x] Add private `readonly_role()` helper to `SqlTemplates` (`src/sql_templates.rs`) — returns quoted `"{schema}_ro"`
+- [x] Add `create_readonly_role()` — `CREATE ROLE "{schema}_ro" NOLOGIN`
+- [x] Add `grant_connect_readonly()` — `GRANT CONNECT ON DATABASE "db" TO "{schema}_ro"`
+- [x] Add `grant_schema_usage_readonly()` — `GRANT USAGE ON SCHEMA "schema" TO "{schema}_ro"`
+- [x] Add `grant_select_tables()` — `GRANT SELECT ON ALL TABLES IN SCHEMA "schema" TO "{schema}_ro"`
+- [x] Add `grant_select_sequences()` — `GRANT SELECT ON ALL SEQUENCES IN SCHEMA "schema" TO "{schema}_ro"`
+- [x] Add `alter_default_privileges_select_tables()` — `ALTER DEFAULT PRIVILEGES IN SCHEMA "schema" GRANT SELECT ON TABLES TO "{schema}_ro"`
+- [x] Add `alter_default_privileges_select_sequences()` — `ALTER DEFAULT PRIVILEGES IN SCHEMA "schema" GRANT SELECT ON SEQUENCES TO "{schema}_ro"`
+- [x] Add read-only role existence check + creation block to `src/commands/init.rs`, after main role creation, using the existing `role_exists()` helper
+- [x] Execute the six read-only grant statements in `init` and record to `ActionReport`
+- [x] Unit tests for new `SqlTemplates` methods — verify `_ro` suffix appears, no INSERT/UPDATE/DELETE/CREATE/DROP SQL present
+
+---
+
+### Implement `ALTER DATABASE ... SET search_path` ✓ COMPLETE
+
+- [x] Add `alter_database_search_path(db: &str, schema: &str) -> String` to `SqlTemplates`
+      in `src/sql_templates.rs` — returns `ALTER DATABASE "db" SET search_path TO "schema"`
+- [x] Call it during `init` after the schema is created, so the database-level default
+      search path is set to the new app schema
+- [x] Add unit test: verify the generated SQL contains both quoted identifiers
+
+---
+
+### Test Coverage ✓ COMPLETE (except noted)
+
+Tests live in `#[cfg(test)]` modules inside their respective source files.
+
+---
+
+#### Prep: extract shared `quote_identifier`
+
+- [x] Move the `quote_identifier` logic out of both `SqlTemplates` (method) and
+  `rehome.rs` (free function) into a single `pub(crate) fn quote_identifier(name: &str) -> String`
+  in a new `src/utils.rs` module. Update callers.
+
+---
+
+#### `src/utils.rs` — `quote_identifier`
+
+- [x] **Normal identifier** — `quote_identifier("foo")` → `"\"foo\""`
+- [x] **Empty string** — `quote_identifier("")` → `"\"\""`
+- [x] **Name containing a double quote** — `quote_identifier("fo\"o")` → `"\"fo\"\"o\""` (quote is doubled)
+- [x] **Name containing two consecutive double quotes** — verify both are escaped
+- [x] **Name that is already a reserved word** — treated as an opaque string; verify output is just wrapped
+
+---
+
+#### `src/sql_templates.rs` — `SqlTemplates`
+
+- [x] **`create_database`** — output is `CREATE DATABASE "mydb"`
+- [x] **`create_schema`** — output is `CREATE SCHEMA "myschema"`
+- [x] **`create_role`** — output is `CREATE ROLE "myrole" NOLOGIN`
+- [x] **`grant_connect`** — output contains both quoted database and role names
+- [x] **`alter_schema_owner`** — output contains `ALTER SCHEMA "s" OWNER TO "r"`
+- [x] **`grant_schema_usage`** — output contains `GRANT USAGE ON SCHEMA`
+- [x] **`grant_schema_create`** — output contains `GRANT CREATE ON SCHEMA`
+- [x] **`grant_all_tables`** — output contains `GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA`
+- [x] **`grant_all_sequences`** — output contains `GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA`
+- [x] **`grant_all_functions`** — output contains `GRANT ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA`
+- [x] **`alter_default_privileges_tables`** — output contains `ALTER DEFAULT PRIVILEGES IN SCHEMA`
+- [x] **`alter_default_privileges_sequences`** — output contains `SEQUENCES`
+- [x] **`alter_default_privileges_functions`** — output contains `FUNCTIONS`
+- [x] **`create_config_table`** — static str contains `schema_ownership_config`, `schema_name`, `target_role`, `created_at`, `updated_at`
+- [x] **`create_trigger_function`** — static str contains `auto_transfer_schema_ownership`, `SECURITY DEFINER`, `pg_event_trigger_ddl_commands`, all handled object types
+- [x] **`create_event_trigger`** — static str contains `auto_transfer_schema_ownership_trigger`, `ddl_command_end`
+- [x] **`insert_initial_mapping`** — output contains both schema and role values, `ON CONFLICT`
+- [x] **Injection via schema name with embedded quote** — quote is doubled (not raw)
+- [x] **Injection via role name with embedded quote** — same exercise for `create_role()`
+
+---
+
+#### `src/report.rs` — `ActionOutcome` and `ActionReport`
+
+- [x] **`ActionOutcome::Created` display** — `format!("{}", ActionOutcome::Created)` == `"Created"`
+- [x] **`ActionOutcome::Skipped` display** — `"Skipped"`
+- [x] **`ActionOutcome::Updated` display** — `"Updated"`
+- [x] **`ActionOutcome::Moved` display** — `"Moved"`
+- [x] **`ActionReport` empty summary** — zero actions → `Total actions: 0`, no per-type lines
+- [x] **`ActionReport` counts one of each** — summary shows `Total actions: 4`, `Created: 1`, `Skipped: 1`, `Updated: 1`, `Moved: 1`
+- [x] **`ActionReport` omits zero-count types** — record only Moved; summary must NOT contain `"Created:"`, `"Skipped:"`, or `"Updated:"` lines
+
+---
+
+#### `src/db.rs` — `SslMode` and `ConnectionConfig`
+
+- [x] **`SslMode::from_str("disable")`** — returns `Ok(SslMode::Disable)`
+- [x] **`SslMode::from_str("prefer")`** — returns `Ok(SslMode::Prefer)`
+- [x] **`SslMode::from_str("require")`** — returns `Ok(SslMode::Require)`
+- [x] **`SslMode::from_str` is case-insensitive** — `"DISABLE"`, `"Prefer"`, `"REQUIRE"` all succeed
+- [x] **`SslMode::from_str` rejects unknown values** — `"verify-full"`, `""`, `"tls"` return `Err`
+- [x] **`SslMode::default()`** — returns `SslMode::Prefer` (matches the clap default)
+- [x] **`ConnectionConfig::build_connection_string` with dbname** — output contains `dbname=mydb`
+- [x] **`ConnectionConfig::build_connection_string` without dbname** — output contains `dbname=postgres` (fallback)
+
+---
+
+#### `src/commands/list_mappings.rs` — `truncate_with_ellipsis`
+
+- [x] **String shorter than max** — returned unchanged
+- [x] **String exactly equal to max** — returned unchanged
+- [x] **String one byte over max** — truncated; result ends with `"[...]"`
+- [x] **Long string** — truncated version is no longer than `max_len`
+- [x] **max_len ≤ 5** — `saturating_sub(5)` produces 0; does not panic
+
+---
+
+#### `src/cli.rs` — argument parsing
+
+- [x] **Minimum valid invocation: `init`** — parses successfully; user/password/schema/role fields correct
+- [x] **Default host and port** — not passing `--host`/`--port`; `connection.host == "localhost"`, `connection.port == 5432`
+- [x] **Default sslmode** — not passing `--sslmode`; `connection.sslmode == "prefer"`
+- [x] **Verbosity counting** — `-v` → `verbose == 1`; `-vv` → `verbose == 2`; not passed → `verbose == 0`
+- [x] **`list-mappings` subcommand** — parses without `--schema`/`--role`
+- [x] **`rehome` subcommand** — requires `--schema`; passes without `--database`
+- [x] **`version` subcommand** — parses successfully
+- [x] **Missing `--user` is rejected** — `try_parse_from` returns `Err`
+- [x] **Missing `--password` is rejected** — `try_parse_from` returns `Err`
+- [x] **`init` missing `--schema` is rejected** — `Err`
+- [x] **`init` missing `--role` is rejected** — `Err`
+- [x] **`rehome` missing `--schema` is rejected** — `Err`
 
 ---
 

@@ -168,3 +168,48 @@ pub async fn execute(conn_opts: ConnectionConfig, verbose: u8) -> Result<()> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── truncate_with_ellipsis ───────────────────────────────────────────────
+
+    #[test]
+    fn short_string_returned_unchanged() {
+        assert_eq!(truncate_with_ellipsis("hello", 10), "hello");
+    }
+
+    #[test]
+    fn string_exactly_max_len_returned_unchanged() {
+        assert_eq!(truncate_with_ellipsis("hello", 5), "hello");
+    }
+
+    #[test]
+    fn string_one_over_max_is_truncated() {
+        let result = truncate_with_ellipsis("hello!", 5);
+        assert!(result.ends_with("[...]"), "expected '[...]' suffix, got: {}", result);
+    }
+
+    #[test]
+    fn truncated_result_is_no_longer_than_max_when_max_is_large() {
+        let input = "a".repeat(100);
+        let result = truncate_with_ellipsis(&input, 20);
+        // saturating_sub(5) = 15 chars of prefix + 5 chars "[...]" = 20
+        assert_eq!(result.len(), 20);
+    }
+
+    #[test]
+    fn max_len_of_five_produces_only_ellipsis_marker() {
+        // saturating_sub(5) = 0, so prefix is empty → "[...]"
+        let result = truncate_with_ellipsis("toolong", 5);
+        assert_eq!(result, "[...]");
+    }
+
+    #[test]
+    fn max_len_below_five_does_not_panic() {
+        // saturating_sub(5) = 0 for any value ≤ 5; must not panic
+        let _ = truncate_with_ellipsis("toolong", 0);
+        let _ = truncate_with_ellipsis("toolong", 3);
+    }
+}
