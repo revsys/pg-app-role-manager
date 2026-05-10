@@ -137,6 +137,30 @@ pub async fn execute(conn_opts: ConnectionConfig, database: String, schema: Stri
         .context("Failed to set default SELECT privileges on sequences for read-only role")?;
     report.record(format!("Default SELECT on sequences ({})", ro_role_name), ActionOutcome::Updated);
 
+    let sql = templates.grant_execute_functions();
+    log_sql(&sql, 1);
+    client.execute(&sql, &[]).await
+        .context("Failed to grant EXECUTE on functions to read-only role")?;
+    report.record(format!("EXECUTE on functions ({})", ro_role_name), ActionOutcome::Updated);
+
+    let sql = templates.grant_usage_types();
+    log_sql(&sql, 1);
+    client.execute(&sql, &[]).await
+        .context("Failed to grant USAGE on types to read-only role")?;
+    report.record(format!("USAGE on types ({})", ro_role_name), ActionOutcome::Updated);
+
+    let sql = templates.alter_default_privileges_execute_functions();
+    log_sql(&sql, 1);
+    client.execute(&sql, &[]).await
+        .context("Failed to set default EXECUTE privileges on functions for read-only role")?;
+    report.record(format!("Default EXECUTE on functions ({})", ro_role_name), ActionOutcome::Updated);
+
+    let sql = templates.alter_default_privileges_usage_types();
+    log_sql(&sql, 1);
+    client.execute(&sql, &[]).await
+        .context("Failed to set default USAGE privileges on types for read-only role")?;
+    report.record(format!("Default USAGE on types ({})", ro_role_name), ActionOutcome::Updated);
+
     // Set up schema ownership and grants
     let sql = templates.grant_connect();
     log_sql(&sql, 1);

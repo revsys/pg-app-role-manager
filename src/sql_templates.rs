@@ -147,7 +147,8 @@ impl SqlTemplates {
 
     pub fn alter_default_privileges_select_tables(&self) -> String {
         format!(
-            "ALTER DEFAULT PRIVILEGES IN SCHEMA {} GRANT SELECT ON TABLES TO {}",
+            "ALTER DEFAULT PRIVILEGES FOR ROLE {} IN SCHEMA {} GRANT SELECT ON TABLES TO {}",
+            self.quote_identifier(&self.role),
             self.quote_identifier(&self.schema),
             self.readonly_role()
         )
@@ -155,7 +156,42 @@ impl SqlTemplates {
 
     pub fn alter_default_privileges_select_sequences(&self) -> String {
         format!(
-            "ALTER DEFAULT PRIVILEGES IN SCHEMA {} GRANT SELECT ON SEQUENCES TO {}",
+            "ALTER DEFAULT PRIVILEGES FOR ROLE {} IN SCHEMA {} GRANT SELECT ON SEQUENCES TO {}",
+            self.quote_identifier(&self.role),
+            self.quote_identifier(&self.schema),
+            self.readonly_role()
+        )
+    }
+
+    pub fn grant_execute_functions(&self) -> String {
+        format!(
+            "GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA {} TO {}",
+            self.quote_identifier(&self.schema),
+            self.readonly_role()
+        )
+    }
+
+    pub fn grant_usage_types(&self) -> String {
+        format!(
+            "GRANT USAGE ON ALL TYPES IN SCHEMA {} TO {}",
+            self.quote_identifier(&self.schema),
+            self.readonly_role()
+        )
+    }
+
+    pub fn alter_default_privileges_execute_functions(&self) -> String {
+        format!(
+            "ALTER DEFAULT PRIVILEGES FOR ROLE {} IN SCHEMA {} GRANT EXECUTE ON FUNCTIONS TO {}",
+            self.quote_identifier(&self.role),
+            self.quote_identifier(&self.schema),
+            self.readonly_role()
+        )
+    }
+
+    pub fn alter_default_privileges_usage_types(&self) -> String {
+        format!(
+            "ALTER DEFAULT PRIVILEGES FOR ROLE {} IN SCHEMA {} GRANT USAGE ON TYPES TO {}",
+            self.quote_identifier(&self.role),
             self.quote_identifier(&self.schema),
             self.readonly_role()
         )
@@ -486,7 +522,8 @@ mod tests {
     #[test]
     fn alter_default_privileges_select_tables_is_select_only() {
         let sql = make().alter_default_privileges_select_tables();
-        assert!(sql.contains("ALTER DEFAULT PRIVILEGES IN SCHEMA"));
+        assert!(sql.contains("ALTER DEFAULT PRIVILEGES FOR ROLE \"myrole\""));
+        assert!(sql.contains("IN SCHEMA"));
         assert!(sql.contains("GRANT SELECT ON TABLES TO"));
         assert!(sql.contains("\"myschema_ro\""));
         assert!(!sql.contains("ALL PRIVILEGES"));
@@ -495,9 +532,44 @@ mod tests {
     #[test]
     fn alter_default_privileges_select_sequences_is_select_only() {
         let sql = make().alter_default_privileges_select_sequences();
+        assert!(sql.contains("ALTER DEFAULT PRIVILEGES FOR ROLE \"myrole\""));
+        assert!(sql.contains("IN SCHEMA"));
         assert!(sql.contains("GRANT SELECT ON SEQUENCES TO"));
         assert!(sql.contains("\"myschema_ro\""));
         assert!(!sql.contains("ALL PRIVILEGES"));
+    }
+
+    #[test]
+    fn grant_execute_functions_targets_ro_role() {
+        let sql = make().grant_execute_functions();
+        assert!(sql.contains("GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA"));
+        assert!(sql.contains("\"myschema\""));
+        assert!(sql.contains("\"myschema_ro\""));
+        assert!(!sql.contains("\"myrole\""));
+    }
+
+    #[test]
+    fn grant_usage_types_targets_ro_role() {
+        let sql = make().grant_usage_types();
+        assert!(sql.contains("GRANT USAGE ON ALL TYPES IN SCHEMA"));
+        assert!(sql.contains("\"myschema\""));
+        assert!(sql.contains("\"myschema_ro\""));
+    }
+
+    #[test]
+    fn alter_default_privileges_execute_functions_targets_ro_role() {
+        let sql = make().alter_default_privileges_execute_functions();
+        assert!(sql.contains("ALTER DEFAULT PRIVILEGES FOR ROLE \"myrole\""));
+        assert!(sql.contains("GRANT EXECUTE ON FUNCTIONS TO"));
+        assert!(sql.contains("\"myschema_ro\""));
+    }
+
+    #[test]
+    fn alter_default_privileges_usage_types_targets_ro_role() {
+        let sql = make().alter_default_privileges_usage_types();
+        assert!(sql.contains("ALTER DEFAULT PRIVILEGES FOR ROLE \"myrole\""));
+        assert!(sql.contains("GRANT USAGE ON TYPES TO"));
+        assert!(sql.contains("\"myschema_ro\""));
     }
 
     #[test]
