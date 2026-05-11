@@ -171,14 +171,6 @@ impl SqlTemplates {
         )
     }
 
-    pub fn grant_usage_types(&self) -> String {
-        format!(
-            "GRANT USAGE ON ALL TYPES IN SCHEMA {} TO {}",
-            self.quote_identifier(&self.schema),
-            self.readonly_role()
-        )
-    }
-
     pub fn alter_default_privileges_execute_functions(&self) -> String {
         format!(
             "ALTER DEFAULT PRIVILEGES FOR ROLE {} IN SCHEMA {} GRANT EXECUTE ON FUNCTIONS TO {}",
@@ -546,14 +538,6 @@ mod tests {
         assert!(sql.contains("\"myschema\""));
         assert!(sql.contains("\"myschema_ro\""));
         assert!(!sql.contains("\"myrole\""));
-    }
-
-    #[test]
-    fn grant_usage_types_targets_ro_role() {
-        let sql = make().grant_usage_types();
-        assert!(sql.contains("GRANT USAGE ON ALL TYPES IN SCHEMA"));
-        assert!(sql.contains("\"myschema\""));
-        assert!(sql.contains("\"myschema_ro\""));
     }
 
     #[test]
