@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.4] - 2026-05-10
+
+### Fixed
+- **Read-Only Role Default Privileges**: Grants on future objects now correctly apply to the app role
+  - Root cause: `ALTER DEFAULT PRIVILEGES` without `FOR ROLE` scopes defaults to the *session user at execution time* (the admin/master user), not the schema owner role. Tables are created by the schema owner, so the defaults never fired.
+  - Previous fix attempt used `ALTER DEFAULT PRIVILEGES FOR ROLE <role>`, which requires superuser — fails on managed PostgreSQL (RDS, Cloud SQL, etc.).
+  - Solution: grant the app role to `CURRENT_USER`, then `SET ROLE` to the app role before running the four `ALTER DEFAULT PRIVILEGES` statements, and `RESET ROLE` after. This works universally regardless of superuser availability.
+- **Read-Only Role Missing Privileges**: Extended coverage to functions and types
+  - Added `GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA` for existing functions
+  - Added `ALTER DEFAULT PRIVILEGES … GRANT EXECUTE ON FUNCTIONS` for future functions
+  - Added `ALTER DEFAULT PRIVILEGES … GRANT USAGE ON TYPES` for future types
+  - Note: PostgreSQL has no `GRANT USAGE ON ALL TYPES IN SCHEMA` bulk form; existing types must be granted individually if needed
+
 ### Fixed
 - **Event Trigger for SERIAL Sequences**: Fixed bug where trigger function failed on tables with SERIAL/BIGSERIAL columns
   - Error: "cannot change owner of sequence... Sequence is linked to table"

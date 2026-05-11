@@ -125,6 +125,18 @@ pub async fn execute(conn_opts: ConnectionConfig, database: String, schema: Stri
         .context("Failed to grant SELECT on sequences to read-only role")?;
     report.record(format!("SELECT on sequences ({})", ro_role_name), ActionOutcome::Updated);
 
+    // SET ROLE so the default privilege grants below apply to objects created by the app role.
+    // We first grant the app role to the current user so SET ROLE works on managed PostgreSQL
+    // (RDS, Cloud SQL, etc.) where the master user is not a true superuser.
+    let sql = templates.grant_role_to_current_user();
+    log_sql(&sql, 1);
+    client.execute(&sql, &[]).await
+        .context("Failed to grant app role to current user")?;
+    let sql = templates.set_role();
+    log_sql(&sql, 1);
+    client.execute(&sql, &[]).await
+        .context("Failed to SET ROLE to app role")?;
+
     let sql = templates.alter_default_privileges_select_tables();
     log_sql(&sql, 1);
     client.execute(&sql, &[]).await
@@ -137,12 +149,6 @@ pub async fn execute(conn_opts: ConnectionConfig, database: String, schema: Stri
         .context("Failed to set default SELECT privileges on sequences for read-only role")?;
     report.record(format!("Default SELECT on sequences ({})", ro_role_name), ActionOutcome::Updated);
 
-    let sql = templates.grant_execute_functions();
-    log_sql(&sql, 1);
-    client.execute(&sql, &[]).await
-        .context("Failed to grant EXECUTE on functions to read-only role")?;
-    report.record(format!("EXECUTE on functions ({})", ro_role_name), ActionOutcome::Updated);
-
     let sql = templates.alter_default_privileges_execute_functions();
     log_sql(&sql, 1);
     client.execute(&sql, &[]).await
@@ -154,6 +160,15 @@ pub async fn execute(conn_opts: ConnectionConfig, database: String, schema: Stri
     client.execute(&sql, &[]).await
         .context("Failed to set default USAGE privileges on types for read-only role")?;
     report.record(format!("Default USAGE on types ({})", ro_role_name), ActionOutcome::Updated);
+
+    client.execute("RESET ROLE", &[]).await
+        .context("Failed to RESET ROLE after setting default privileges")?;
+
+    let sql = templates.grant_execute_functions();
+    log_sql(&sql, 1);
+    client.execute(&sql, &[]).await
+        .context("Failed to grant EXECUTE on functions to read-only role")?;
+    report.record(format!("EXECUTE on functions ({})", ro_role_name), ActionOutcome::Updated);
 
     // Set up schema ownership and grants
     let sql = templates.grant_connect();
