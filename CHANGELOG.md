@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **DigitalOcean Managed PostgreSQL Compatibility**: `init` no longer hard-fails when event
+  trigger creation is denied. Managed PostgreSQL services that prohibit event triggers (e.g.
+  DigitalOcean) now receive a clear warning and a fully-configured database; only the
+  automatic ownership transfer trigger is skipped.
+
 ## [1.1.4] - 2026-05-10
 
 ### Fixed

@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use tokio_postgres::Client;
+use tokio_postgres::{Client, error::SqlState};
 
 use crate::db::{connect, ConnectionConfig};
 use crate::report::{ActionOutcome, ActionReport};
@@ -251,9 +251,24 @@ pub async fn execute(conn_opts: ConnectionConfig, database: String, schema: Stri
     } else {
         let sql = templates.create_event_trigger();
         log_sql(sql, 1);
-        client.execute(sql, &[]).await
-            .context("Failed to create event trigger")?;
-        report.record("Event trigger", ActionOutcome::Created);
+        match client.execute(sql, &[]).await {
+            Ok(_) => {
+                report.record("Event trigger", ActionOutcome::Created);
+            }
+            Err(ref e) if e.code() == Some(&SqlState::INSUFFICIENT_PRIVILEGE) => {
+                eprintln!(
+                    "Warning: Could not create event trigger (insufficient privileges). \
+                     Managed PostgreSQL services (DigitalOcean, etc.) require superuser for \
+                     event triggers. Automatic ownership transfer is disabled; new objects \
+                     must be manually reassigned to role '{}'.",
+                    role
+                );
+                report.record("Event trigger", ActionOutcome::Skipped);
+            }
+            Err(e) => {
+                return Err(anyhow::anyhow!(e).context("Failed to create event trigger"));
+            }
+        }
     }
 
     // Insert initial mapping
