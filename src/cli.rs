@@ -19,11 +19,11 @@ pub struct ConnectionOpts {
     #[arg(long, env = "PGPORT", default_value = "5432")]
     pub port: u16,
 
-    #[arg(long, env = "PGUSER", required = true)]
-    pub user: String,
+    #[arg(long, env = "PGUSER")]
+    pub user: Option<String>,
 
-    #[arg(long, env = "PGPASSWORD", required = true, hide_env_values = true)]
-    pub password: String,
+    #[arg(long, env = "PGPASSWORD", hide_env_values = true)]
+    pub password: Option<String>,
 
     #[arg(long, env = "PGDATABASE")]
     pub dbname: Option<String>,
@@ -75,8 +75,8 @@ mod tests {
             "prog", "--user", "u", "--password", "p",
             "init", "--schema", "myschema", "--role", "myrole",
         ]).unwrap();
-        assert_eq!(cli.connection.user, "u");
-        assert_eq!(cli.connection.password, "p");
+        assert_eq!(cli.connection.user.as_deref(), Some("u"));
+        assert_eq!(cli.connection.password.as_deref(), Some("p"));
         match cli.command {
             Command::Init { schema, role, .. } => {
                 assert_eq!(schema, "myschema");
@@ -138,9 +138,7 @@ mod tests {
 
     #[test]
     fn version_parses() {
-        let cli = Cli::try_parse_from([
-            "prog", "--user", "u", "--password", "p", "version",
-        ]).unwrap();
+        let cli = Cli::try_parse_from(["prog", "version"]).unwrap();
         assert!(matches!(cli.command, Command::Version));
     }
 
@@ -199,24 +197,24 @@ mod tests {
     // ── Required args that have env fallbacks: serialize via ENV_LOCK ────────
 
     #[test]
-    fn missing_user_rejected_without_env_var() {
+    fn version_succeeds_without_user_env() {
         let _guard = ENV_LOCK.lock().unwrap();
         let saved = std::env::var("PGUSER").ok();
         // SAFETY: single-threaded section guarded by ENV_LOCK
         unsafe { std::env::remove_var("PGUSER"); }
-        let result = Cli::try_parse_from(["prog", "--password", "p", "version"]);
+        let result = Cli::try_parse_from(["prog", "version"]);
         if let Some(v) = saved { unsafe { std::env::set_var("PGUSER", v); } }
-        assert!(result.is_err());
+        assert!(result.is_ok());
     }
 
     #[test]
-    fn missing_password_rejected_without_env_var() {
+    fn version_succeeds_without_password_env() {
         let _guard = ENV_LOCK.lock().unwrap();
         let saved = std::env::var("PGPASSWORD").ok();
         unsafe { std::env::remove_var("PGPASSWORD"); }
-        let result = Cli::try_parse_from(["prog", "--user", "u", "version"]);
+        let result = Cli::try_parse_from(["prog", "version"]);
         if let Some(v) = saved { unsafe { std::env::set_var("PGPASSWORD", v); } }
-        assert!(result.is_err());
+        assert!(result.is_ok());
     }
 
     // ── Default connection option values ────────────────────────────────────

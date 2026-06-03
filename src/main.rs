@@ -14,14 +14,24 @@ use db::{ConnectionConfig, SslMode};
 async fn main() -> Result<()> {
     let args = Cli::parse();
 
+    if let Command::Version = args.command {
+        println!("{}", env!("CARGO_PKG_VERSION"));
+        return Ok(());
+    }
+
+    let user = args.connection.user
+        .ok_or_else(|| anyhow::anyhow!("--user / PGUSER is required"))?;
+    let password = args.connection.password
+        .ok_or_else(|| anyhow::anyhow!("--password / PGPASSWORD is required"))?;
+
     // Parse SSL mode
     let sslmode = SslMode::from_str(&args.connection.sslmode)?;
 
     let conn_config = ConnectionConfig {
         host: args.connection.host,
         port: args.connection.port,
-        user: args.connection.user,
-        password: args.connection.password,
+        user,
+        password,
         dbname: args.connection.dbname,
         sslmode,
     };
@@ -49,9 +59,7 @@ async fn main() -> Result<()> {
 
             commands::rehome::execute(conn_config, resolved_database, schema, verbose).await?;
         }
-        Command::Version => {
-            println!("{}", env!("CARGO_PKG_VERSION"));
-        }
+        Command::Version => unreachable!(),
     }
 
     Ok(())
