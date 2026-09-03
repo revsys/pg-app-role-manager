@@ -46,6 +46,9 @@ pub enum Command {
 
         #[arg(long, required = true)]
         role: String,
+
+        #[arg(long, help = "Name of the read-only role (defaults to '<schema>_ro'); role names are cluster-wide and must not collide across databases")]
+        read_only_role: Option<String>,
     },
     ListMappings,
     Rehome {
@@ -97,6 +100,30 @@ mod tests {
         ]).unwrap();
         match cli.command {
             Command::Init { database, .. } => assert_eq!(database.as_deref(), Some("mydb")),
+            _ => panic!("expected Init"),
+        }
+    }
+
+    #[test]
+    fn init_read_only_role_defaults_to_none() {
+        let cli = Cli::try_parse_from([
+            "prog", "--user", "u", "--password", "p",
+            "init", "--schema", "s", "--role", "r",
+        ]).unwrap();
+        match cli.command {
+            Command::Init { read_only_role, .. } => assert!(read_only_role.is_none()),
+            _ => panic!("expected Init"),
+        }
+    }
+
+    #[test]
+    fn init_parses_read_only_role() {
+        let cli = Cli::try_parse_from([
+            "prog", "--user", "u", "--password", "p",
+            "init", "--schema", "s", "--role", "r", "--read-only-role", "ro_role",
+        ]).unwrap();
+        match cli.command {
+            Command::Init { read_only_role, .. } => assert_eq!(read_only_role.as_deref(), Some("ro_role")),
             _ => panic!("expected Init"),
         }
     }

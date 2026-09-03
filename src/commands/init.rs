@@ -5,7 +5,7 @@ use crate::db::{connect, ConnectionConfig};
 use crate::report::{ActionOutcome, ActionReport};
 use crate::sql_templates::SqlTemplates;
 
-pub async fn execute(conn_opts: ConnectionConfig, database: String, schema: String, role: String, verbose: u8) -> Result<()> {
+pub async fn execute(conn_opts: ConnectionConfig, database: String, schema: String, role: String, ro_role: String, verbose: u8) -> Result<()> {
     // Block operations on system databases (PostgreSQL + cloud providers)
     let blocked_databases = ["postgres", "template0", "template1", "rdsadmin", "azure_maintenance", "cloudsqladmin"];
     if blocked_databases.contains(&database.as_str()) {
@@ -17,7 +17,7 @@ pub async fn execute(conn_opts: ConnectionConfig, database: String, schema: Stri
     }
 
     let mut report = ActionReport::new("Init");
-    let templates = SqlTemplates::new(database.clone(), schema.clone(), role.clone());
+    let templates = SqlTemplates::new(database.clone(), schema.clone(), role.clone(), ro_role.clone());
 
     // Helper to print SQL in verbose mode
     let log_sql = |sql: &str, min_level: u8| {
@@ -90,40 +90,39 @@ pub async fn execute(conn_opts: ConnectionConfig, database: String, schema: Stri
     }
 
     // Check and create read-only role
-    let ro_role_name = format!("{}_ro", schema);
-    if role_exists(&client, &ro_role_name, verbose).await? {
-        report.record(format!("Role '{}'", ro_role_name), ActionOutcome::Skipped);
+    if role_exists(&client, &ro_role, verbose).await? {
+        report.record(format!("Role '{}'", ro_role), ActionOutcome::Skipped);
     } else {
         let sql = templates.create_readonly_role();
         log_sql(&sql, 1);
         client.execute(&sql, &[]).await
             .context("Failed to create read-only role")?;
-        report.record(format!("Role '{}'", ro_role_name), ActionOutcome::Created);
+        report.record(format!("Role '{}'", ro_role), ActionOutcome::Created);
     }
 
     let sql = templates.grant_connect_readonly();
     log_sql(&sql, 1);
     client.execute(&sql, &[]).await
         .context("Failed to grant CONNECT to read-only role")?;
-    report.record(format!("CONNECT privilege ({})", ro_role_name), ActionOutcome::Updated);
+    report.record(format!("CONNECT privilege ({})", ro_role), ActionOutcome::Updated);
 
     let sql = templates.grant_schema_usage_readonly();
     log_sql(&sql, 1);
     client.execute(&sql, &[]).await
         .context("Failed to grant USAGE on schema to read-only role")?;
-    report.record(format!("USAGE on schema ({})", ro_role_name), ActionOutcome::Updated);
+    report.record(format!("USAGE on schema ({})", ro_role), ActionOutcome::Updated);
 
     let sql = templates.grant_select_tables();
     log_sql(&sql, 1);
     client.execute(&sql, &[]).await
         .context("Failed to grant SELECT on tables to read-only role")?;
-    report.record(format!("SELECT on tables ({})", ro_role_name), ActionOutcome::Updated);
+    report.record(format!("SELECT on tables ({})", ro_role), ActionOutcome::Updated);
 
     let sql = templates.grant_select_sequences();
     log_sql(&sql, 1);
     client.execute(&sql, &[]).await
         .context("Failed to grant SELECT on sequences to read-only role")?;
-    report.record(format!("SELECT on sequences ({})", ro_role_name), ActionOutcome::Updated);
+    report.record(format!("SELECT on sequences ({})", ro_role), ActionOutcome::Updated);
 
     // SET ROLE so the default privilege grants below apply to objects created by the app role.
     // We first grant the app role to the current user so SET ROLE works on managed PostgreSQL
@@ -141,25 +140,25 @@ pub async fn execute(conn_opts: ConnectionConfig, database: String, schema: Stri
     log_sql(&sql, 1);
     client.execute(&sql, &[]).await
         .context("Failed to set default SELECT privileges on tables for read-only role")?;
-    report.record(format!("Default SELECT on tables ({})", ro_role_name), ActionOutcome::Updated);
+    report.record(format!("Default SELECT on tables ({})", ro_role), ActionOutcome::Updated);
 
     let sql = templates.alter_default_privileges_select_sequences();
     log_sql(&sql, 1);
     client.execute(&sql, &[]).await
         .context("Failed to set default SELECT privileges on sequences for read-only role")?;
-    report.record(format!("Default SELECT on sequences ({})", ro_role_name), ActionOutcome::Updated);
+    report.record(format!("Default SELECT on sequences ({})", ro_role), ActionOutcome::Updated);
 
     let sql = templates.alter_default_privileges_execute_functions();
     log_sql(&sql, 1);
     client.execute(&sql, &[]).await
         .context("Failed to set default EXECUTE privileges on functions for read-only role")?;
-    report.record(format!("Default EXECUTE on functions ({})", ro_role_name), ActionOutcome::Updated);
+    report.record(format!("Default EXECUTE on functions ({})", ro_role), ActionOutcome::Updated);
 
     let sql = templates.alter_default_privileges_usage_types();
     log_sql(&sql, 1);
     client.execute(&sql, &[]).await
         .context("Failed to set default USAGE privileges on types for read-only role")?;
-    report.record(format!("Default USAGE on types ({})", ro_role_name), ActionOutcome::Updated);
+    report.record(format!("Default USAGE on types ({})", ro_role), ActionOutcome::Updated);
 
     client.execute("RESET ROLE", &[]).await
         .context("Failed to RESET ROLE after setting default privileges")?;
@@ -168,7 +167,7 @@ pub async fn execute(conn_opts: ConnectionConfig, database: String, schema: Stri
     log_sql(&sql, 1);
     client.execute(&sql, &[]).await
         .context("Failed to grant EXECUTE on functions to read-only role")?;
-    report.record(format!("EXECUTE on functions ({})", ro_role_name), ActionOutcome::Updated);
+    report.record(format!("EXECUTE on functions ({})", ro_role), ActionOutcome::Updated);
 
     // Set up schema ownership and grants
     let sql = templates.grant_connect();

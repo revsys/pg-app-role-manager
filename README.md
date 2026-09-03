@@ -31,6 +31,7 @@ pg-app-role-manager init --database mydb --schema app --role app_owner
 Creates:
 - Database (if it doesn't exist)
 - Schema and role (with NOLOGIN)
+- A read-only role granted SELECT/EXECUTE on the schema's objects (name defaults to `<schema>_ro`; override with `--read-only-role` since role names are cluster-wide and can collide across databases that share a schema name)
 - Config table in `public.schema_ownership_config`
 - Event trigger function for automatic ownership transfer
 - Event trigger `auto_transfer_schema_ownership_trigger`

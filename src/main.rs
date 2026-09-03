@@ -39,14 +39,15 @@ async fn main() -> Result<()> {
     let verbose = args.connection.verbose;
 
     match args.command {
-        Command::Init { database, schema, role } => {
+        Command::Init { database, schema, role, read_only_role } => {
             // Resolve database name from --database flag or PGDATABASE env var
             let resolved_database = database.or_else(|| conn_config.dbname.clone())
                 .ok_or_else(|| anyhow::anyhow!(
                     "Database must be specified via --database flag or PGDATABASE environment variable"
                 ))?;
+            let resolved_ro_role = read_only_role.unwrap_or_else(|| format!("{}_ro", schema));
 
-            commands::init::execute(conn_config, resolved_database, schema, role, verbose).await?;
+            commands::init::execute(conn_config, resolved_database, schema, role, resolved_ro_role, verbose).await?;
         }
         Command::ListMappings => {
             commands::list_mappings::execute(conn_config, verbose).await?;

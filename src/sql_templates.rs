@@ -2,14 +2,16 @@ pub struct SqlTemplates {
     pub database: String,
     pub schema: String,
     pub role: String,
+    pub ro_role: String,
 }
 
 impl SqlTemplates {
-    pub fn new(database: String, schema: String, role: String) -> Self {
+    pub fn new(database: String, schema: String, role: String, ro_role: String) -> Self {
         Self {
             database,
             schema,
             role,
+            ro_role,
         }
     }
 
@@ -106,7 +108,7 @@ impl SqlTemplates {
     }
 
     fn readonly_role(&self) -> String {
-        crate::utils::quote_identifier(&format!("{}_ro", self.schema))
+        crate::utils::quote_identifier(&self.ro_role)
     }
 
     pub fn create_readonly_role(&self) -> String {
@@ -329,7 +331,7 @@ mod tests {
     use super::*;
 
     fn make() -> SqlTemplates {
-        SqlTemplates::new("mydb".into(), "myschema".into(), "myrole".into())
+        SqlTemplates::new("mydb".into(), "myschema".into(), "myrole".into(), "myschema_ro".into())
     }
 
     // ── Individual SQL methods ───────────────────────────────────────────────
@@ -458,28 +460,37 @@ mod tests {
     fn schema_name_with_embedded_quote_is_escaped() {
         // Schema name:  bad"schema
         // Expected SQL: CREATE SCHEMA "bad""schema"
-        let t = SqlTemplates::new("db".into(), "bad\"schema".into(), "role".into());
+        let t = SqlTemplates::new("db".into(), "bad\"schema".into(), "role".into(), "ro_role".into());
         assert_eq!(t.create_schema(), "CREATE SCHEMA \"bad\"\"schema\"");
     }
 
     #[test]
     fn role_name_with_embedded_quote_is_escaped() {
-        let t = SqlTemplates::new("db".into(), "schema".into(), "bad\"role".into());
+        let t = SqlTemplates::new("db".into(), "schema".into(), "bad\"role".into(), "ro_role".into());
         assert_eq!(t.create_role(), "CREATE ROLE \"bad\"\"role\" NOLOGIN");
     }
 
     #[test]
     fn database_name_with_embedded_quote_is_escaped() {
-        let t = SqlTemplates::new("bad\"db".into(), "schema".into(), "role".into());
+        let t = SqlTemplates::new("bad\"db".into(), "schema".into(), "role".into(), "ro_role".into());
         assert_eq!(t.create_database(), "CREATE DATABASE \"bad\"\"db\"");
     }
 
     // ── Read-only role methods ───────────────────────────────────────────────
 
     #[test]
-    fn create_readonly_role_has_ro_suffix() {
+    fn create_readonly_role_uses_explicit_ro_role() {
         let sql = make().create_readonly_role();
         assert_eq!(sql, "CREATE ROLE \"myschema_ro\" NOLOGIN");
+    }
+
+    #[test]
+    fn create_readonly_role_is_independent_of_schema_name() {
+        // ro_role need not be derived from schema — callers may pass any
+        // cluster-unique name (e.g. to avoid collisions across databases
+        // that share a schema name).
+        let t = SqlTemplates::new("mydb".into(), "myschema".into(), "myrole".into(), "totally_different_ro".into());
+        assert_eq!(t.create_readonly_role(), "CREATE ROLE \"totally_different_ro\" NOLOGIN");
     }
 
     #[test]
@@ -579,9 +590,9 @@ mod tests {
     }
 
     #[test]
-    fn readonly_role_name_escapes_schema_quote() {
-        let t = SqlTemplates::new("db".into(), "bad\"schema".into(), "role".into());
-        assert_eq!(t.create_readonly_role(), "CREATE ROLE \"bad\"\"schema_ro\" NOLOGIN");
+    fn readonly_role_name_escapes_embedded_quote() {
+        let t = SqlTemplates::new("db".into(), "schema".into(), "role".into(), "bad\"ro_role".into());
+        assert_eq!(t.create_readonly_role(), "CREATE ROLE \"bad\"\"ro_role\" NOLOGIN");
     }
 
     #[test]

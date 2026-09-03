@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **`init --read-only-role`**: New optional flag to set the name of the read-only role explicitly.
+  Defaults to `<schema>_ro` as before. Since schema names may repeat across databases in a
+  PostgreSQL cluster but role names must be unique cluster-wide, this lets callers avoid
+  collisions when the default derived name would clash with a role from another database.
+
 ### Breaking Changes
 - **`rehome` requires an explicit source schema**: `--schema` (target schema) is renamed to
   `--target-schema`, and a new required `--source-schema` flag replaces the previous hardcoded
