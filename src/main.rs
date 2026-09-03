@@ -51,13 +51,13 @@ async fn main() -> Result<()> {
         Command::ListMappings => {
             commands::list_mappings::execute(conn_config, verbose).await?;
         }
-        Command::Rehome { database, schema } => {
+        Command::Rehome { database, source_schema, target_schema } => {
             let resolved_database = database.or_else(|| conn_config.dbname.clone())
                 .ok_or_else(|| anyhow::anyhow!(
                     "Database must be specified via --database flag or PGDATABASE environment variable"
                 ))?;
 
-            commands::rehome::execute(conn_config, resolved_database, schema, verbose).await?;
+            commands::rehome::execute(conn_config, resolved_database, source_schema, target_schema, verbose).await?;
         }
         Command::Version => unreachable!(),
     }

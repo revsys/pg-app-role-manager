@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Breaking Changes
+- **`rehome` requires an explicit source schema**: `--schema` (target schema) is renamed to
+  `--target-schema`, and a new required `--source-schema` flag replaces the previous hardcoded
+  assumption that objects always live in `public`. This lets `rehome` move objects out of any
+  schema, not just `public`. Update any scripts using `rehome --schema <target>` to
+  `rehome --source-schema public --target-schema <target>`.
+
 ### Fixed
 - **DigitalOcean Managed PostgreSQL Compatibility**: `init` no longer hard-fails when event
   trigger creation is denied. Managed PostgreSQL services that prohibit event triggers (e.g.

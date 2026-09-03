@@ -53,7 +53,10 @@ pub enum Command {
         database: Option<String>,
 
         #[arg(long, required = true)]
-        schema: String,
+        source_schema: String,
+
+        #[arg(long, required = true)]
+        target_schema: String,
     },
     Version,
 }
@@ -99,14 +102,15 @@ mod tests {
     }
 
     #[test]
-    fn rehome_parses_schema_without_database() {
+    fn rehome_parses_schemas_without_database() {
         let cli = Cli::try_parse_from([
             "prog", "--user", "u", "--password", "p",
-            "rehome", "--schema", "app",
+            "rehome", "--source-schema", "public", "--target-schema", "app",
         ]).unwrap();
         match cli.command {
-            Command::Rehome { database, schema } => {
-                assert_eq!(schema, "app");
+            Command::Rehome { database, source_schema, target_schema } => {
+                assert_eq!(source_schema, "public");
+                assert_eq!(target_schema, "app");
                 assert!(database.is_none());
             }
             _ => panic!("expected Rehome"),
@@ -117,11 +121,12 @@ mod tests {
     fn rehome_with_database() {
         let cli = Cli::try_parse_from([
             "prog", "--user", "u", "--password", "p",
-            "rehome", "--database", "mydb", "--schema", "app",
+            "rehome", "--database", "mydb", "--source-schema", "public", "--target-schema", "app",
         ]).unwrap();
         match cli.command {
-            Command::Rehome { database, schema } => {
-                assert_eq!(schema, "app");
+            Command::Rehome { database, source_schema, target_schema } => {
+                assert_eq!(source_schema, "public");
+                assert_eq!(target_schema, "app");
                 assert_eq!(database.as_deref(), Some("mydb"));
             }
             _ => panic!("expected Rehome"),
@@ -188,7 +193,23 @@ mod tests {
     }
 
     #[test]
-    fn rehome_requires_schema() {
+    fn rehome_requires_source_schema() {
+        assert!(Cli::try_parse_from([
+            "prog", "--user", "u", "--password", "p",
+            "rehome", "--target-schema", "app",
+        ]).is_err());
+    }
+
+    #[test]
+    fn rehome_requires_target_schema() {
+        assert!(Cli::try_parse_from([
+            "prog", "--user", "u", "--password", "p",
+            "rehome", "--source-schema", "public",
+        ]).is_err());
+    }
+
+    #[test]
+    fn rehome_requires_schemas_when_both_missing() {
         assert!(Cli::try_parse_from([
             "prog", "--user", "u", "--password", "p", "rehome",
         ]).is_err());
